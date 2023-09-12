@@ -1,64 +1,126 @@
 (function() {
 
     let DB;
+    const listadoClientes = document.querySelector('#listado-clientes');
 
     document.addEventListener('DOMContentLoaded', () => {
         crearDB();
-
-        if(window.open('crm', 1)) {
-            obtenerCliente();
+    
+        if(window.indexedDB.open('crm', 1)) {
+            obtenerClientes();
         }
-    })
+
+        listadoClientes.addEventListener('click', eliminarRegistro)
+        
+    });
+
+    function eliminarRegistro(e) {
+        if (e.target.classList.contains('eliminar')) {
+            const idEliminar = Number(e.target.dataset.cliente);
+
+            Swal.fire({
+                title: 'Estas seguro?',
+                text: "No podrás revertir esto!",
+                icon: 'warning',
+                showCancelButton: true,
+                confirmButtonColor: '#3085d6',
+                cancelButtonColor: '#d33',
+                confirmButtonText: 'Si, Eliminar!'
+            }).then((confirmar) => {
+                if (confirmar.isConfirmed) {
+                    Swal.fire(
+                        'Eliminado!',
+                        'El archivo fue eliminado.',
+                        'success'
+                    )
+                    const transaction = DB.transaction(['crm'], 'readwrite');
+                    const objectStore = transaction.objectStore('crm');
+
+                    objectStore.delete(idEliminar);
+
+                    transaction.oncomplete = function() {
+                        console.log('Eliminado...');
+
+                        e.target.parentElement.parentElement.remove();
+                    };
+
+                    transaction.onerror = function() {
+                        console.log('Hubo un error');
+                    }
+                }
+            })
+
+        }
+    }
 
 
-    // Crea la base de datos de IndexDB
+    // Código de IndexedDB
     function crearDB() {
+        // crear base de datos con la versión 1
         const crearDB = window.indexedDB.open('crm', 1);
-
+    
+        // si hay un error, lanzarlo
         crearDB.onerror = function() {
             console.log('Hubo un error');
         };
-
+    
+        // si todo esta bien, asignar a database el resultado
         crearDB.onsuccess = function() {
+            // guardamos el resultado
             DB = crearDB.result;
         };
 
         crearDB.onupgradeneeded = function(e) {
+            // el evento que se va a correr tomamos la base de datos
             const db = e.target.result;
-
-            const objectStore = db.createObjectStore('crm', { keyPath: 'id', autoIncrement: true })
-
-            objectStore.createIndex('nombre', 'nombre', { unique: false });
-            objectStore.createIndex('email', 'email', { unique: true });
-            objectStore.createIndex('telefono', 'telefono', { unique: false });
-            objectStore.createIndex('empresa', 'empresa', { unique: false });
-            objectStore.createIndex('id', 'id', { unique: true });
-
-            console.log('DB Lista y Creada')
+    
+            
+            // definir el objectstore, primer parametro el nombre de la BD, segundo las opciones
+            // keypath es de donde se van a obtener los indices
+            const objectStore = db.createObjectStore('crm', { keyPath: 'id',  autoIncrement: true } );
+    
+            //createindex, nombre y keypath, 3ro los parametros
+            objectStore.createIndex('nombre', 'nombre', { unique: false } );
+            objectStore.createIndex('email', 'email', { unique: true } );
+            objectStore.createIndex('telefono', 'telefono', { unique: false } );
+            objectStore.createIndex('empresa', 'empresa', { unique: false } );
+            objectStore.createIndex('id', 'id', { unique: true } );
+    
+            
+            console.log('Database creada y lista');
         };
 
     }
 
-    function obtenerCliente() {
+    function obtenerClientes() {
+
         const abrirConexion = window.indexedDB.open('crm', 1);
 
+        // si hay un error, lanzarlo
         abrirConexion.onerror = function() {
             console.log('Hubo un error');
-        }
-
+        };
+    
+        // si todo esta bien, asignar a database el resultado
         abrirConexion.onsuccess = function() {
+            // guardamos el resultado
             DB = abrirConexion.result;
 
             const objectStore = DB.transaction('crm').objectStore('crm');
 
+
+            // retorna un objeto request o petición, 
             objectStore.openCursor().onsuccess = function(e) {
-                const cursor = e.target.result;
+                 // cursor se va a ubicar en el registro indicado para accede ra los datos
+                 const cursor = e.target.result;
 
-                if(cursor) {
-                    const {nombre, empresa, email, telefono, id} = cursor.value;
-
-                    const listadoClientes = document.querySelector('#listado-clientes');
+                //  console.log(e.target);
+     
+                 if(cursor) {
+                    const { nombre, empresa, email, telefono, id } = cursor.value;
+                    
                     listadoClientes.innerHTML += `
+
                         <tr>
                             <td class="px-6 py-4 whitespace-no-wrap border-b border-gray-200">
                                 <p class="text-sm leading-5 font-medium text-gray-700 text-lg  font-bold"> ${nombre} </p>
@@ -72,17 +134,22 @@
                             </td>
                             <td class="px-6 py-4 whitespace-no-wrap border-b border-gray-200 text-sm leading-5">
                                 <a href="editar-cliente.html?id=${id}" class="text-teal-600 hover:text-teal-900 mr-5">Editar</a>
-                                <a href="#" data-cliente="${id}" class="text-red-600 hover:text-red-900">Eliminar</a>
+                                <a href="#" data-cliente="${id}" class="text-red-600 hover:text-red-900 eliminar">Eliminar</a>
                             </td>
                         </tr>
                     `;
-
+        
                     cursor.continue();
-                } else {
-                    console.log('No hay mas registros');
-                }
-            }
-        }
+                 } else {
+                    //  console.log('llegamos al final...');
+                 }
+             };
+
+
+
+        };
+
+
     }
 
 })();
